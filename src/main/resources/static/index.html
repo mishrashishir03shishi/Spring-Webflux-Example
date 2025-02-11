@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Stock Price Ticker</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        h1 { color: #333; }
+        #stockContainer { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .stock-card { border: 1px solid #ccc; padding: 20px; border-radius: 10px; width: 200px; background-color: #f9f9f9; }
+        .price { font-size: 24px; color: green; }
+        .timestamp { color: gray; }
+    </style>
+</head>
+<body>
+<h1>📈 Live Stock Price Ticker</h1>
+<div id="stockContainer"></div>
+
+<script>
+    const eventSources = {};
+    const stocks = ["AAPL", "GOOG", "MSFT"];
+
+    // Initialize all stocks on page load
+    window.onload = () => {
+        stocks.forEach(symbol => createStockCard(symbol));
+    };
+
+    function createStockCard(symbol) {
+        const stockCard = document.createElement("div");
+        stockCard.className = "stock-card";
+        stockCard.id = `card-${symbol}`;
+        stockCard.innerHTML = `
+                <h2>${symbol}</h2>
+                <div class="price" id="price-${symbol}">-</div>
+                <div class="timestamp" id="timestamp-${symbol}">Waiting for updates...</div>
+                <button onclick="toggleStreaming('${symbol}')">Stop Streaming</button>
+            `;
+        document.getElementById("stockContainer").appendChild(stockCard);
+
+        startStreaming(symbol);
+    }
+
+    function startStreaming(symbol) {
+        const eventSource = new EventSource(`http://localhost:8080/stocks/${symbol}/stream`);
+        eventSources[symbol] = eventSource;
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            document.getElementById(`price-${symbol}`).textContent = `$${data.price.toFixed(2)}`;
+            document.getElementById(`timestamp-${symbol}`).textContent = new Date(data.timestamp).toLocaleTimeString();
+        };
+
+        eventSource.onerror = (error) => {
+            console.error(`Stream error for ${symbol}:`, error);
+            stopStreaming(symbol);
+            document.getElementById(`timestamp-${symbol}`).textContent = "Stream disconnected.";
+        };
+    }
+
+    function toggleStreaming(symbol) {
+        if (eventSources[symbol]) {
+            stopStreaming(symbol);
+        } else {
+            startStreaming(symbol);
+            document.querySelector(`#card-${symbol} button`).textContent = "Stop Streaming";
+        }
+    }
+
+    function stopStreaming(symbol) {
+        if (eventSources[symbol]) {
+            eventSources[symbol].close();
+            delete eventSources[symbol];
+            document.querySelector(`#card-${symbol} button`).textContent = "Start Streaming";
+            document.getElementById(`timestamp-${symbol}`).textContent = "Stream stopped.";
+        }
+    }
+</script>
+</body>
+</html>
